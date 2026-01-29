@@ -1,5 +1,5 @@
 {
-  "name": "omni-converter",
+  "name": "copy-of-all-in-one-converter",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,8 +15,7 @@
     "lucide-react": "^0.562.0",
     "qr-code-styling": "1.5.0",
     "jspdf": "2.5.1",
-    "emoji-picker-react": "4.9.2",
-    "@google/genai": "latest"
+    "emoji-picker-react": "4.9.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

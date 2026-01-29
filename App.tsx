@@ -28,7 +28,8 @@ import {
   Languages,
   Search,
   MapPin,
-  LogOut
+  LogOut,
+  ShieldAlert
 } from 'lucide-react';
 import { ToolType, NavItem } from './types';
 import BasicCalculator from './tools/BasicCalculator';
@@ -65,54 +66,8 @@ const defaultSettings = {
   adminId: 'admin',
   adminEmail: 'admin@omnicalc.pro',
   adminPassword: 'admin',
-  enabledTools: {
-    [ToolType.BASIC_CALC]: true,
-    [ToolType.SCIENTIFIC_CALC]: true,
-    [ToolType.EMI_CALC]: true,
-    [ToolType.FINANCIAL_CALC]: true,
-    [ToolType.AGE_CALC]: true,
-    [ToolType.CURRENCY_COUNTER]: true,
-    [ToolType.NUMBER_WORDS]: true,
-    [ToolType.DAY_COUNTER]: true,
-    [ToolType.DATE_OFFSET_CALC]: true,
-    [ToolType.PERCENT_FINDER]: true,
-    [ToolType.GST_CALC]: true,
-    [ToolType.HSN_FINDER]: true,
-    [ToolType.MEASUREMENT]: true,
-    [ToolType.TEXT_CONVERTER]: true,
-    [ToolType.FANCY_TEXT]: true,
-    [ToolType.INDIC_KEYBOARD]: true,
-    [ToolType.QR_GENERATOR]: true,
-    [ToolType.LINK_SHORTENER]: true,
-    [ToolType.WHATSAPP_LINK]: true,
-    [ToolType.SEO_META_GEN]: true,
-    [ToolType.FAKE_ADDRESS_GEN]: true,
-    [ToolType.ADMIN]: true,
-  },
-  toolOrder: [
-    ToolType.BASIC_CALC,
-    ToolType.SCIENTIFIC_CALC,
-    ToolType.EMI_CALC,
-    ToolType.FINANCIAL_CALC,
-    ToolType.AGE_CALC,
-    ToolType.CURRENCY_COUNTER,
-    ToolType.NUMBER_WORDS,
-    ToolType.DAY_COUNTER,
-    ToolType.DATE_OFFSET_CALC,
-    ToolType.PERCENT_FINDER,
-    ToolType.GST_CALC,
-    ToolType.HSN_FINDER,
-    ToolType.MEASUREMENT,
-    ToolType.TEXT_CONVERTER,
-    ToolType.FANCY_TEXT,
-    ToolType.INDIC_KEYBOARD,
-    ToolType.QR_GENERATOR,
-    ToolType.LINK_SHORTENER,
-    ToolType.WHATSAPP_LINK,
-    ToolType.SEO_META_GEN,
-    ToolType.FAKE_ADDRESS_GEN,
-    ToolType.ADMIN
-  ],
+  enabledTools: Object.fromEntries(Object.values(ToolType).map(t => [t, true])),
+  toolOrder: Object.values(ToolType),
   financialToolOrder: ['SIP', 'Lumpsum', 'EBITDA'],
   hsnDirectory: DEFAULT_DIRECTORY_DATABASE
 };
@@ -139,17 +94,11 @@ const App: React.FC = () => {
           ...defaultSettings, 
           ...parsed, 
           enabledTools: { ...defaultSettings.enabledTools, ...parsed.enabledTools },
-          toolOrder: parsed.toolOrder || defaultSettings.toolOrder,
-          financialToolOrder: parsed.financialToolOrder || defaultSettings.financialToolOrder,
-          hsnDirectory: parsed.hsnDirectory || defaultSettings.hsnDirectory
         };
         setSettings(currentSettings);
-      } catch (e) {
-        console.error("Failed to load settings");
-      }
+      } catch (e) {}
     }
 
-    // Check for admin link: ?admin or ?mode=admin
     const params = new URLSearchParams(window.location.search);
     if (params.has('admin') || params.get('mode') === 'admin') {
       setShowAdminLogin(true);
@@ -169,16 +118,19 @@ const App: React.FC = () => {
       setShowAdminLogin(false);
       setActiveTool(ToolType.ADMIN);
       setLoginError('');
-      // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
       setLoginError('Invalid Admin ID or Password');
     }
   };
 
-  const handleLogoutAdmin = () => {
-    setIsAdminAuth(false);
-    setActiveTool(ToolType.BASIC_CALC);
+  const handleToolClick = (toolId: ToolType) => {
+    if (toolId === ToolType.ADMIN && !isAdminAuth) {
+      setShowAdminLogin(true);
+    } else {
+      setActiveTool(toolId);
+    }
+    setIsSidebarOpen(false);
   };
 
   const navItems: NavItem[] = [
@@ -203,20 +155,19 @@ const App: React.FC = () => {
     { id: ToolType.WHATSAPP_LINK, icon: <MessageCircle size={20} />, description: 'Message Link Generator' },
     { id: ToolType.SEO_META_GEN, icon: <Search size={20} />, description: 'SERP Preview & Generator' },
     { id: ToolType.FAKE_ADDRESS_GEN, icon: <MapPin size={20} />, description: 'Random Identity & Address' },
+    { id: ToolType.ADMIN, icon: <Settings size={20} />, description: 'Application Settings' },
   ];
 
   const getOrderedNavItems = () => {
     const itemMap = new Map(navItems.map(item => [item.id, item]));
-    const ordered = settings.toolOrder
+    return settings.toolOrder
       .map((id: string) => itemMap.get(id as ToolType))
       .filter((item: NavItem | undefined): item is NavItem => item !== undefined);
-    
-    // Filter out ADMIN if not authenticated
-    return ordered.filter(item => item.id !== ToolType.ADMIN || isAdminAuth);
   };
 
   const renderTool = () => {
     switch (activeTool) {
+      case ToolType.ADMIN: return isAdminAuth ? <AdminPanel settings={settings} onSave={saveSettings} /> : null;
       case ToolType.BASIC_CALC: return <BasicCalculator />;
       case ToolType.SCIENTIFIC_CALC: return <ScientificCalculator />;
       case ToolType.EMI_CALC: return <EMICalculator />;
@@ -238,17 +189,15 @@ const App: React.FC = () => {
       case ToolType.WHATSAPP_LINK: return <WhatsAppGenerator />;
       case ToolType.SEO_META_GEN: return <SeoMetaGenerator />;
       case ToolType.FAKE_ADDRESS_GEN: return <FakeAddressGenerator />;
-      case ToolType.ADMIN: return isAdminAuth ? <AdminPanel settings={settings} onSave={saveSettings} /> : null;
       default: return <BasicCalculator />;
     }
   };
 
-  if (!loaded) return null;
+  if (!loaded) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-black text-indigo-600 animate-pulse uppercase tracking-widest">Loading Omni Pro...</div>;
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-900 overflow-hidden">
       
-      {/* Admin Login Portal Overlay */}
       {showAdminLogin && !isAdminAuth && (
         <AdminLogin 
           onLogin={handleAdminLogin} 
@@ -266,19 +215,15 @@ const App: React.FC = () => {
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">{settings.appName.charAt(0)}</div>
           <span className="font-bold text-xl tracking-tight">{settings.appName}</span>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600">
           {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </header>
 
       {/* Sidebar */}
-      <aside className={`
-        fixed inset-0 z-40 bg-white border-r w-72 transform transition-transform duration-300 md:relative md:translate-x-0
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        flex flex-col
-      `}>
+      <aside className={`fixed inset-0 z-40 bg-white border-r w-72 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
         <div className="flex flex-col h-full">
-          <div className="p-6 pb-2 flex-shrink-0">
+          <div className="p-6 pb-2">
             <div className="hidden md:flex items-center gap-3 mb-6 px-2">
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">{settings.appName.charAt(0)}</div>
               <div className="flex flex-col">
@@ -293,25 +238,15 @@ const App: React.FC = () => {
               {getOrderedNavItems().filter(item => settings.enabledTools[item.id] !== false).map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    setActiveTool(item.id);
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`
-                    w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
-                    ${activeTool === item.id 
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' 
-                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}
-                  `}
+                  onClick={() => handleToolClick(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${activeTool === item.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
                 >
                   <span className={activeTool === item.id ? 'text-white' : 'text-slate-400 group-hover:text-indigo-600'}>
                     {item.id === ToolType.ADMIN ? <Settings size={20} /> : item.icon}
                   </span>
                   <div className="flex flex-col items-start text-left min-w-0">
                     <span className="font-semibold text-sm leading-none mb-1 truncate w-full">{item.id}</span>
-                    <span className={`text-xs truncate w-full ${activeTool === item.id ? 'text-indigo-100' : 'text-slate-400'}`}>
-                      {item.description}
-                    </span>
+                    <span className={`text-xs truncate w-full ${activeTool === item.id ? 'text-indigo-100' : 'text-slate-400'}`}>{item.description}</span>
                   </div>
                   {activeTool === item.id && <ChevronRight size={14} className="ml-auto flex-shrink-0" />}
                 </button>
@@ -320,54 +255,27 @@ const App: React.FC = () => {
           </div>
 
           <div className="p-6 pt-0 space-y-4 flex-shrink-0 bg-white">
-            {/* Admin Logout / Standard View Return */}
-            {isAdminAuth && (
-               <button
-                 onClick={handleLogoutAdmin}
-                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100"
-               >
-                 <LogOut size={16} /> Exit Admin
-               </button>
-            )}
-
-            {/* Support Section */}
-            {(settings.supportEmail || settings.supportPhone) && !isAdminAuth && (
-              <div className="border-t pt-4">
-                <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Support</p>
-                  
-                  {settings.supportEmail && (
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 text-indigo-500"><Mail size={14} /></div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-700 truncate">{settings.supportEmail}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {settings.supportPhone && (
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 text-indigo-500"><Phone size={14} /></div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-700 truncate">{settings.supportPhone}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {!isAdminAuth ? (
+              <button 
+                onClick={() => setShowAdminLogin(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg"
+              >
+                <Settings size={16} /> Admin Portal
+              </button>
+            ) : (
+              <button
+                onClick={() => { setIsAdminAuth(false); setActiveTool(ToolType.BASIC_CALC); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100"
+              >
+                <LogOut size={16} /> Logout Admin
+              </button>
             )}
           </div>
         </div>
       </aside>
 
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 md:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 transition-all flex flex-col">
         <div className="max-w-[1920px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 flex-1">
           <div className="mb-4 sm:mb-6 ml-2">
@@ -382,11 +290,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {settings.footerText && (
-           <div className="mt-8 text-center pb-4">
-             <p className="text-[10px] sm:text-xs font-bold text-slate-300 uppercase tracking-widest">{settings.footerText}</p>
-           </div>
-        )}
+        {settings.footerText && <div className="mt-8 text-center pb-4"><p className="text-[10px] sm:text-xs font-bold text-slate-300 uppercase tracking-widest">{settings.footerText}</p></div>}
       </main>
     </div>
   );

@@ -21,47 +21,34 @@
         }
 
         /* --- Modern Scrollbar UI --- */
-        /* For Chrome, Safari, and Edge */
         ::-webkit-scrollbar {
              width: 10px;
              height: 10px;
         }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
+        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1; /* slate-300 */
+            background-color: #cbd5e1;
             border-radius: 9999px;
             border: 3px solid transparent;
             background-clip: content-box;
         }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: #94a3b8; /* slate-400 */
+        ::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+        ::-webkit-scrollbar-thumb:active { background-color: #6366f1; }
+        * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
         }
-
-        /* Active/Pressed state */
-        ::-webkit-scrollbar-thumb:active {
-            background-color: #6366f1; /* indigo-500 */
-        }
-
-        /* For Firefox */
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: #cbd5e1 transparent;
-        }
-
-        /* Utility to hide scrollbars when explicitly requested but keep scrolling functionality */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
     </style>
+    <!-- Process Shim for browser compatibility -->
+    <script>
+      window.process = { env: { NODE_ENV: 'production' } };
+    </script>
 <script type="importmap">
 {
   "imports": {
@@ -72,12 +59,15 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "qr-code-styling": "https://esm.sh/qr-code-styling@1.5.0",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "emoji-picker-react": "https://esm.sh/emoji-picker-react@4.9.2"
+    "emoji-picker-react": "https://esm.sh/emoji-picker-react@4.9.2",
+    "@google/genai": "https://esm.sh/@google/genai"
   }
 }
 </script>
 </head>
 <body>
     <div id="root"></div>
+    <!-- Entry point script tag -->
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

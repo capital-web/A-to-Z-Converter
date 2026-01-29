@@ -1,5 +1,4 @@
 
-// Import React to ensure the React namespace is available for React.ReactNode
 import React from 'react';
 
 export enum ToolType {
@@ -24,6 +23,7 @@ export enum ToolType {
   WHATSAPP_LINK = 'WhatsApp Link Generator',
   SEO_META_GEN = 'SEO Meta Tag Generator',
   FAKE_ADDRESS_GEN = 'Fake Address Generator',
+  HISTORY = 'Records & AI Insights',
   ADMIN = 'Admin Panel'
 }
 

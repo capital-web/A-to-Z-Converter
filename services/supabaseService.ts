@@ -4,8 +4,8 @@
  * Logic for cross-device configuration synchronization and data persistence.
  */
 
-const SUPABASE_URL = 'https://ubddpbcsjdxvcpdldfji.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViZGRwYmNzamR4dmNwZGxkZmppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2ODA4NzMsImV4cCI6MjA4NTI1Njg3M30.kHebpBxzTDgwXZ_q2UKLRPxnuKCUmSnEGhZlRUpoykY';
+const SUPABASE_URL = 'https://srwgzpzkanlyzrjwebcq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_MPJI-h7LaB8VsXiG5TMvGA_bau6LtzG';
 
 const headers = {
   'apikey': SUPABASE_KEY,
@@ -24,6 +24,7 @@ export const SupabaseDB = {
 
   /**
    * Saves application settings (Admin Config) to Supabase.
+   * This saves: App Name, Footer, Admin Creds, Tool Order, and HSN Directory.
    */
   saveSettings: async (syncKey: string, settingsData: any) => {
     try {

@@ -29,7 +29,10 @@ import {
   Search,
   MapPin,
   LogOut,
-  ShieldAlert
+  ShieldAlert,
+  Cloud,
+  Database,
+  History
 } from 'lucide-react';
 import { ToolType, NavItem } from './types';
 import BasicCalculator from './tools/BasicCalculator';
@@ -53,19 +56,25 @@ import LinkShortener from './tools/LinkShortener';
 import WhatsAppGenerator from './tools/WhatsAppGenerator';
 import SeoMetaGenerator from './tools/SeoMetaGenerator';
 import FakeAddressGenerator from './tools/FakeAddressGenerator';
+import HistoryPanel from './tools/HistoryPanel';
 import AdminPanel from './tools/AdminPanel';
 import AdminLogin from './components/AdminLogin';
 import { DEFAULT_DIRECTORY_DATABASE } from './data/hsnDefaults';
+import { SupabaseDB } from './services/supabaseService';
 
 // Default Settings
 const defaultSettings = {
   appName: 'OmniCalc Pro',
+  browserTitle: 'OmniCalc Pro - All in One Tool',
+  logoUrl: '',
+  faviconUrl: '',
   footerText: 'Precision Tools for Everyday Calculations',
   supportEmail: 'support@omnicalc.pro',
   supportPhone: '',
   adminId: 'admin',
   adminEmail: 'admin@omnicalc.pro',
   adminPassword: 'admin',
+  syncKey: '', // Added for Supabase Sync
   enabledTools: Object.fromEntries(Object.values(ToolType).map(t => [t, true])),
   toolOrder: Object.values(ToolType),
   financialToolOrder: ['SIP', 'Lumpsum', 'EBITDA'],
@@ -77,39 +86,87 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [settings, setSettings] = useState(defaultSettings);
   const [loaded, setLoaded] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   
   // Admin Flow State
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminAuth, setIsAdminAuth] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // Load Settings & Check for Admin URL
+  // Load Settings & Check for Admin URL & Sync with Supabase
   useEffect(() => {
-    const savedSettings = localStorage.getItem('omnicalc_settings');
-    let currentSettings = defaultSettings;
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        currentSettings = { 
-          ...defaultSettings, 
-          ...parsed, 
-          enabledTools: { ...defaultSettings.enabledTools, ...parsed.enabledTools },
-        };
-        setSettings(currentSettings);
-      } catch (e) {}
-    }
+    const initApp = async () => {
+      const savedSettings = localStorage.getItem('omnicalc_settings');
+      let currentSettings = defaultSettings;
+      
+      if (savedSettings) {
+        try {
+          const parsed = JSON.parse(savedSettings);
+          currentSettings = { 
+            ...defaultSettings, 
+            ...parsed, 
+            enabledTools: { ...defaultSettings.enabledTools, ...parsed.enabledTools },
+          };
+        } catch (e) {}
+      }
 
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('admin') || params.get('mode') === 'admin') {
-      setShowAdminLogin(true);
-    }
+      // Check URL for Sync Key (Easier to pair new devices)
+      const params = new URLSearchParams(window.location.search);
+      const urlSyncKey = params.get('sync');
+      if (urlSyncKey) {
+        currentSettings.syncKey = urlSyncKey;
+      }
 
-    setLoaded(true);
+      // Fetch from Supabase if Sync Key exists
+      if (currentSettings.syncKey) {
+        setIsCloudSyncing(true);
+        const cloudData = await SupabaseDB.getSettings(currentSettings.syncKey);
+        if (cloudData) {
+          currentSettings = { ...currentSettings, ...cloudData, syncKey: currentSettings.syncKey };
+        }
+        setIsCloudSyncing(false);
+      }
+      
+      setSettings(currentSettings);
+      
+      if (params.has('admin') || params.get('mode') === 'admin') {
+        setShowAdminLogin(true);
+      }
+      setLoaded(true);
+    };
+
+    initApp();
   }, []);
 
-  const saveSettings = (newSettings: any) => {
+  // Apply Branding (Title & Favicon)
+  useEffect(() => {
+    if (!loaded) return;
+    
+    // Update Title
+    document.title = settings.browserTitle || settings.appName;
+
+    // Update Favicon
+    let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    if (settings.faviconUrl) {
+      link.href = settings.faviconUrl;
+    }
+  }, [settings, loaded]);
+
+  const saveSettings = async (newSettings: any) => {
     setSettings(newSettings);
     localStorage.setItem('omnicalc_settings', JSON.stringify(newSettings));
+    
+    // Push to cloud if sync key exists
+    if (newSettings.syncKey) {
+      setIsCloudSyncing(true);
+      await SupabaseDB.saveSettings(newSettings.syncKey, newSettings);
+      setIsCloudSyncing(false);
+    }
   };
 
   const handleAdminLogin = (id: string, pass: string) => {
@@ -139,6 +196,7 @@ const App: React.FC = () => {
     { id: ToolType.EMI_CALC, icon: <Calculator size={20} />, description: 'Loan & EMI Calculators' },
     { id: ToolType.FINANCIAL_CALC, icon: <TrendingUp size={20} />, description: 'SIP & Lumpsum Investments' },
     { id: ToolType.AGE_CALC, icon: <User size={20} />, description: 'Age & Birthday Tracker' },
+    { id: ToolType.HISTORY, icon: <Database size={20} />, description: 'Saved Records & Database' },
     { id: ToolType.CURRENCY_COUNTER, icon: <IndianRupee size={20} />, description: 'Cash Counter & Denominations' },
     { id: ToolType.NUMBER_WORDS, icon: <Type size={20} />, description: 'Currency to Words Converter' },
     { id: ToolType.DAY_COUNTER, icon: <Calendar size={20} />, description: 'Date Difference Finder' },
@@ -168,9 +226,10 @@ const App: React.FC = () => {
   const renderTool = () => {
     switch (activeTool) {
       case ToolType.ADMIN: return isAdminAuth ? <AdminPanel settings={settings} onSave={saveSettings} /> : null;
+      case ToolType.HISTORY: return <HistoryPanel syncKey={settings.syncKey} />;
       case ToolType.BASIC_CALC: return <BasicCalculator />;
       case ToolType.SCIENTIFIC_CALC: return <ScientificCalculator />;
-      case ToolType.EMI_CALC: return <EMICalculator />;
+      case ToolType.EMI_CALC: return <EMICalculator syncKey={settings.syncKey} />;
       case ToolType.FINANCIAL_CALC: return <FinancialCalculator settings={settings} />;
       case ToolType.AGE_CALC: return <AgeCalculator />;
       case ToolType.CURRENCY_COUNTER: return <CurrencyCounter />;
@@ -185,7 +244,7 @@ const App: React.FC = () => {
       case ToolType.FANCY_TEXT: return <FancyTextGenerator />;
       case ToolType.INDIC_KEYBOARD: return <IndicKeyboard />;
       case ToolType.QR_GENERATOR: return <QRCodeGenerator />;
-      case ToolType.LINK_SHORTENER: return <LinkShortener />;
+      case ToolType.LINK_SHORTENER: return <LinkShortener syncKey={settings.syncKey} />;
       case ToolType.WHATSAPP_LINK: return <WhatsAppGenerator />;
       case ToolType.SEO_META_GEN: return <SeoMetaGenerator />;
       case ToolType.FAKE_ADDRESS_GEN: return <FakeAddressGenerator />;
@@ -212,8 +271,12 @@ const App: React.FC = () => {
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">{settings.appName.charAt(0)}</div>
-          <span className="font-bold text-xl tracking-tight">{settings.appName}</span>
+          {settings.logoUrl ? (
+            <img src={settings.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
+          ) : (
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">{settings.appName.charAt(0)}</div>
+          )}
+          {!settings.logoUrl && <span className="font-bold text-xl tracking-tight">{settings.appName}</span>}
         </div>
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600">
           {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
@@ -225,11 +288,21 @@ const App: React.FC = () => {
         <div className="flex flex-col h-full">
           <div className="p-6 pb-2">
             <div className="hidden md:flex items-center gap-3 mb-6 px-2">
-              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">{settings.appName.charAt(0)}</div>
-              <div className="flex flex-col">
-                <span className="font-bold text-lg leading-tight truncate w-40">{settings.appName}</span>
-                <span className="text-sm text-slate-400">{isAdminAuth ? 'Manager View' : 'Toolbox'}</span>
-              </div>
+              {settings.logoUrl ? (
+                <img src={settings.logoUrl} alt={settings.appName} className="max-h-12 w-auto max-w-full object-contain" />
+              ) : (
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200 flex-shrink-0">{settings.appName.charAt(0)}</div>
+              )}
+              
+              {!settings.logoUrl && (
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-lg leading-tight truncate max-w-[120px]">{settings.appName}</span>
+                    {settings.syncKey && <Cloud size={14} className={isCloudSyncing ? 'text-indigo-600 animate-pulse' : 'text-emerald-500'} />}
+                  </div>
+                  <span className="text-sm text-slate-400">{isAdminAuth ? 'Manager View' : 'Toolbox'}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -278,11 +351,19 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 transition-all flex flex-col">
         <div className="max-w-[1920px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 flex-1">
-          <div className="mb-4 sm:mb-6 ml-2">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 tracking-tight">{activeTool}</h1>
-            <p className="text-slate-500 mt-1 font-medium text-xs sm:text-sm">
-              {navItems.find(i => i.id === activeTool)?.description || (activeTool === ToolType.ADMIN ? 'Manage Application Settings' : '')}
-            </p>
+          <div className="mb-4 sm:mb-6 ml-2 flex justify-between items-end">
+            <div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 tracking-tight">{activeTool}</h1>
+              <p className="text-slate-500 mt-1 font-medium text-xs sm:text-sm">
+                {navItems.find(i => i.id === activeTool)?.description || (activeTool === ToolType.ADMIN ? 'Manage Application Settings' : '')}
+              </p>
+            </div>
+            {settings.syncKey && (
+               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl shadow-sm mb-1">
+                 <Database size={14} className={isCloudSyncing ? 'text-indigo-600 animate-pulse' : 'text-indigo-500'} />
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cloud Synced</span>
+               </div>
+            )}
           </div>
           
           <div className="bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl shadow-slate-200/50 p-4 sm:p-6 md:p-10 lg:p-12 border border-slate-100 min-h-[400px]">

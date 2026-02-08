@@ -24,6 +24,7 @@ export enum ToolType {
   WHATSAPP_LINK = 'WhatsApp Link Generator',
   SEO_META_GEN = 'SEO Meta Tag Generator',
   FAKE_ADDRESS_GEN = 'Fake Address Generator',
+  HISTORY = 'Cloud Records',
   ADMIN = 'Admin Panel'
 }
 
